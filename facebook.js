@@ -15,11 +15,9 @@ var postLimit = 200;
 var currentTime = parseInt(Date.now());
 var trendMinutes = 4 * 60; // 
 var trendMilliSeconds = trendMinutes * 60 * 1000;
-var callbackCounter = 
-{
-    'users'     : 0,
-    'paging'    : 0
-}
+
+
+
 // Utils
 
 google.load('visualization', '1.0', {'packages':['corechart']});
@@ -237,7 +235,7 @@ function getAllTagedUsersFromPhotos(album_id) {
 		if (response.error) {
 			DebugPrint('<getAllTagedUsersFromPhotos> Error - ' + response.error.message);
 			return
-		}                
+		}
 		images = response.data;        
         var count = 0
 		for (var j = 0; j < images.length; j++) {
@@ -293,8 +291,8 @@ function onLoadAlbum() {
 
 
 function analyzePhotos() {
-    clear_images('#photos1');    
-    initCallbackCounter(showAnalysis);
+    clear_images('#photos1');        
+    FBPager.reset(showAnalysis);
     var name = $( "#friends_selection" ).val()
     if (typeof friendsMap[name] === "undefined") {
         ErrorPrint('Invalid friend name: ' + name);
@@ -303,8 +301,11 @@ function analyzePhotos() {
     initUglyObject(name,friendID)
     progressbar.progressbar({ value : false })
     $( "#progressbar" ).show()
-    var cmd = '/'+ friendID +'/photos?';
-    getDataWithPaging(cmd,getImagesData,100,0);
+    var cmd = '/'+ friendID +'/photos?';                
+    var pager  = new FBPager(cmd,
+                            100,
+                            getImagesData);
+    pager.run();
 }
 
 function showAnalysis() {
@@ -432,10 +433,18 @@ function sortUsers(array,type) {
 
 function getImagesData(image) {       
     initImageObject(image);
-    var likesCmdStr = '/' + image.id + '/likes?' 
-    getDataWithPaging(likesCmdStr,genTypeObjCallback(image.id,'likes'),100,0)
-    var commentsCmdStr = '/' + image.id + '/comments?'
-    getDataWithPaging(commentsCmdStr,genTypeObjCallback(image.id,'comments'),100,0)
+    var likesCmdStr = '/' + image.id + '/likes?'     
+    var likesPager  = new FBPager(
+        likesCmdStr,
+        100,
+        genTypeObjCallback(image.id,'likes'));
+    likesPager.run();
+    var commentsCmdStr = '/' + image.id + '/comments?'    
+    var commentsPager  = new FBPager(
+        commentsCmdStr,
+        100,
+        genTypeObjCallback(image.id,'comments'));
+    commentsPager.run();
 }
 
 function genTypeObjCallback(imageID,type) {
@@ -447,8 +456,12 @@ function genTypeObjCallback(imageID,type) {
         uglyObject['images'][imageID][type].all++
         uglyObject['totals'][type].all++
         if (!uglyObject['friends'][user_id]) {
-            var callbackFunc = genCreateUserCallback(imageID,type);
-            callbackFunc(user_id)
+            var queryStr = '/' + user_id + '?fields=picture,gender,link,name';
+            var pager  = new FBPager(
+                queryStr,
+                0,
+                genCreateUserCallback(imageID,type));            
+            pager.run();
         } else {            
             var gender = uglyObject['friends'][user_id].gender
             uglyObject['images'][imageID][type][gender]++
@@ -460,48 +473,19 @@ function genTypeObjCallback(imageID,type) {
 
 
 
-
-
 function genCreateUserCallback(imageID,type) {
-     return function(user_id) {
-        callbackCounter.paging++        
-        FB.api('/' + user_id + '?fields=picture,gender,link,name',function(response) {
-            if (response.error) {
-                DebugPrint('<genCreateUserCallback> Error - ' + response.error.message);
-                return
-            }            
-            // It's possible some other callback already created the user
-            if (!uglyObject['friends'][user_id]) {
-                initUserObject(response);
-            }
-            var gender = uglyObject['friends'][user_id].gender
-            uglyObject['images'][imageID][type][gender]++
-            uglyObject['friends'][user_id][type]++
-            uglyObject['totals'][type][gender]++
-            callbackCounter.paging--
-            checkIfCallbackFinished();
-        });
+     return function(response) {                    
+        if (!uglyObject['friends'][response.id]) {
+            initUserObject(response);
+        }
+        var gender = uglyObject['friends'][response.id].gender
+        uglyObject['images'][imageID][type][gender]++
+        uglyObject['friends'][response.id][type]++
+        uglyObject['totals'][type][gender]++;
     }
 }
 
 
-
-function initCallbackCounter(onDone,onObjectDone) {
-    callbackCounter = 
-    {
-        'users'   : 0,
-        'paging'  : 0,
-        'onDone'  : onDone,
-        'onObjectDone' : onObjectDone,
-    }
-}
-
-function checkIfCallbackFinished() {
-    DebugPrint("users = " + callbackCounter.users + " | paging = " + callbackCounter.paging)
-    if (callbackCounter.users == 0 && callbackCounter.paging == 0) {
-        callbackCounter.onDone();
-    }
-}
 
 function initUserObject(userObj) {        
     uglyObject['friends'][userObj.id] =
@@ -537,39 +521,9 @@ function initImageObject(imgObj) {
         'female' : 0,
         'undefined' : 0
     }
-    DebugPrint(JSONlength(uglyObject.images))
+    //DebugPrint(JSONlength(uglyObject.images))
     //display_photo(uglyObject.images[id],id,'#photos1')
 }  
-  
-function getDataWithPaging(cmd,func,limit,offset) {
-    callbackCounter.paging++
-    console.log('Paging Count = ' + callbackCounter.paging);
-    // Assume cmd contains '?'
-    var apiCmd = cmd + '&offset=' + offset + '&limit=' + limit;
-    FB.api(apiCmd,function(response) {
-        if (response.error) {
-            DebugPrint('<getPhotos> Error - ' + response.error.message);
-            return
-        }
-        if (response.data.length == 0) {
-            callbackCounter.paging--;
-            console.log('Paging Count = ' + callbackCounter.paging);
-            checkIfCallbackFinished();
-            if (callbackCounter.onObjectDone) {
-                    callbackCounter.onObjectDone();
-            }
-            return
-        }        
-        for (obj_idx in response.data) {
-            func(response.data[obj_idx])
-        }
-    
-        getDataWithPaging(cmd,func,limit,offset+limit);
-        callbackCounter.paging--;
-        console.log('Paging Count = ' + callbackCounter.paging);
-        checkIfCallbackFinished();
-    });
-}
   
 
   
@@ -761,8 +715,7 @@ function genCommentsTimeResults() {
         results.hours[groupCommentsMap[commentId].hour]++;
         results.days[groupCommentsMap[commentId].day]++;
         results.months[groupCommentsMap[commentId].month]++;        
-    }
-    console.log("this happen")
+    }    
     return results;
 }
 
@@ -844,12 +797,12 @@ function loadGroupStats(groupId) {
     progressbar.progressbar({ value : false });
     postCount = 0;        
     $( "#progressbar" ).show();
-    initCallbackCounter(onShowGroupStatsFinish,onPostOBjectDone);
     FB.api('/'+ groupId + '/feed?fields=message,actions,from,likes,id,created_time&summary=true&limit='+postLimit,function(response) {
 		if (response.error) {
 			DebugPrint('<loadGroupStats> Error: ' + response.error.message);
 			return
 		}
+        FBPager.reset(onShowGroupStatsFinish);
         postLimit = response.data.length;
         //console.log(response.data.length)        
         for (postIdx in response.data) {        
@@ -871,9 +824,12 @@ function loadGroupStats(groupId) {
             usersMap[userID].likes += postLikes;
             usersMap[userID].postsBy++;            
             var commentsCmdStr = '/' + postID + '/comments?fields=id,like_count,from,created_time'
-            //console.log(commentsCmdStr)
-            getDataWithPaging(commentsCmdStr,genPostCommentCallback(postID),50,0);            
-            //
+            var pager  = new FBPager(
+                commentsCmdStr,
+                50,
+                genPostCommentCallback(postID),
+                onPostOBjectDone);
+            pager.run();
         }        
     });
 }
