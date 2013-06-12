@@ -54,10 +54,20 @@ a.image_tag {
 }
 
 #progressbar {
+/*
     width: 30%;
     position : fixed;    
     top : 350px ;
     left : 600px;
+*/
+   width: 500px;
+   height: 40px;
+   position: absolute;
+   top: 50%;
+   left: 35%;
+   margin-left: -(500/2)px;
+   margin-top: -(40/2)px;
+}
 }
 
 /* Tab 3 */

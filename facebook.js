@@ -748,14 +748,8 @@ function initArrayOfLength(len,value) {
     return arr;
 }
 
-var weekdays = new Array(7);
-weekdays[0] = "Sunday";
-weekdays[1] = "Monday";
-weekdays[2] = "Tuesday";
-weekdays[3] = "Wednesday";
-weekdays[4] = "Thursday";
-weekdays[5] = "Friday";
-weekdays[6] = "Saturday";
+
+var weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function genCommentsTimeResults() {
     var results = {
@@ -772,9 +766,13 @@ function genCommentsTimeResults() {
     return results;
 }
 
+
+
 function drawGroupCharts(results) {
     // Hours chart
     var hoursData = new google.visualization.DataTable();
+    var chartHeight = 500;
+    var chartWidth = parseInt($(window).width() / 2.1);
     hoursData.addColumn('number', 'Hour');
     hoursData.addColumn('number', 'Comments');
     for (hour in results.hours) {
@@ -784,8 +782,8 @@ function drawGroupCharts(results) {
 
         // Set chart options
     var hourOptions = {'title':'Number of comments in hours of the day',
-                   'width':800,
-                   'height':500,                   
+                   'width':chartWidth,
+                   'height':chartHeight,                   
                    };
 
         // Instantiate and draw our chart, passing in some options.
@@ -804,8 +802,8 @@ function drawGroupCharts(results) {
 
         // Set chart options
     var daysOptions = {'title':'Number of comments in days of the week',
-                   'width':800,
-                   'height':500,                   
+                   'width':chartWidth,
+                   'height':chartHeight,                   
                    };
 
         // Instantiate and draw our chart, passing in some options.
@@ -951,7 +949,7 @@ function onShowGroupStatsFinish() {
     if (!isNaN(averageLikes)) {
         console.log('Average likes on my posts and comments: ' + averageLikes.toFixed(2));
         $('#my_results').append(
-            $('<p>Average likes: ' + averageLikes.toFixed() + '</p>'));
+            $('<p>Average likes on post and comments: ' + averageLikes.toFixed() + '</p>'));
     }
     var averageComments = usersMap[myId].commentsOn / usersMap[myId].postsBy
     if (!isNaN(averageComments)) {        
